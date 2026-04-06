@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
     if (existing.length === 0) {
       await sql`
-        INSERT INTO users (id, email, name, avatar_url)
-        VALUES (${userId}, ${googleUser.email}, ${googleUser.name}, ${googleUser.picture})
+        INSERT INTO users (id, email, name, avatar_url, plan, emails_limit)
+        VALUES (${userId}, ${googleUser.email}, ${googleUser.name}, ${googleUser.picture}, 'FREE', 5)
       `
     } else {
       await sql`

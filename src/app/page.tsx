@@ -143,15 +143,17 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto px-4 text-center">
             <h2 className="text-2xl font-bold mb-4">Simple Pricing. No Subscriptions Required.</h2>
             <p className="text-slate-400 mb-10">Pay for what you use. Each plan gives you a batch of AI-researched, personalized emails.</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {[
+                { name: 'Free', emails: 5, price: '$0', per: 'No card needed', free: true },
                 { name: 'Starter', emails: 50, price: '$7', per: '$0.14/email' },
                 { name: 'Growth', emails: 200, price: '$19', per: '$0.10/email' },
                 { name: 'Pro', emails: 500, price: '$39', per: '$0.08/email', popular: true },
                 { name: 'Scale', emails: 2000, price: '$99', per: '$0.05/email' },
-              ].map((plan, idx) => (
-                <div key={idx} className={`rounded-xl p-6 ${plan.popular ? 'bg-orange-500 ring-2 ring-orange-400' : 'bg-slate-800'}`}>
+              ].map((plan: any, idx) => (
+                <div key={idx} className={`rounded-xl p-6 ${plan.popular ? 'bg-orange-500 ring-2 ring-orange-400' : plan.free ? 'bg-slate-700 border border-slate-600' : 'bg-slate-800'}`}>
                   {plan.popular && <p className="text-xs font-bold uppercase tracking-wider mb-2">Most Popular</p>}
+                  {plan.free && <p className="text-xs font-bold uppercase tracking-wider mb-2 text-green-400">Try Free</p>}
                   <h3 className="text-lg font-bold">{plan.name}</h3>
                   <p className="text-3xl font-bold mt-2">{plan.price}</p>
                   <p className="text-sm opacity-70 mt-1">{plan.emails} emails</p>
