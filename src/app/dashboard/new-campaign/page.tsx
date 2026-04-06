@@ -172,7 +172,7 @@ export default function NewCampaignPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Upload Contact CSV</label>
-            <p className="text-xs text-slate-500 mb-3">Required columns: email. Optional: first_name, last_name, company_name, title</p>
+            <p className="text-xs text-slate-500 mb-3">Required: First Name, Last Name, Email, Company, Title (Apollo CSV exports work directly)</p>
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
               <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
               <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)}
