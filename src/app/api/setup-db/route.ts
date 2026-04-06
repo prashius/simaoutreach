@@ -140,6 +140,10 @@ export async function GET() {
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS click_count INTEGER DEFAULT 0`
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ`
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS reply_type TEXT`
+
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_host TEXT`
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_port INTEGER`
 
     // Indexes
     await sql`CREATE INDEX IF NOT EXISTS idx_click_tracking_send ON click_tracking(email_send_id)`

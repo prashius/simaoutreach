@@ -3,6 +3,7 @@ import sql from '@/lib/db'
 import { sendEmail } from '@/lib/smtp'
 import { wrapUrlsForTracking } from '@/lib/url-tracker'
 import { processFollowups } from '@/lib/followup-generator'
+import { processAllReplies } from '@/lib/reply-tracker'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
     emailsFailed: 0,
     followupsGenerated: 0,
     followupErrors: 0,
+    repliesFound: 0,
+    replyErrors: 0,
+    usersChecked: 0,
     errors: [] as string[],
   }
 
@@ -136,11 +140,17 @@ export async function GET(request: NextRequest) {
     results.followupsGenerated = followupResult.generated
     results.followupErrors = followupResult.errors
 
+    // --- PHASE 3: Check for replies via IMAP ---
+    const replyResult = await processAllReplies()
+    results.repliesFound = replyResult.totalFound
+    results.replyErrors = replyResult.totalErrors
+    results.usersChecked = replyResult.usersChecked
+
   } catch (error) {
     results.errors.push(`Global: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  console.log(`[Cron] Sent: ${results.emailsSent}, Failed: ${results.emailsFailed}, Follow-ups: ${results.followupsGenerated}`)
+  console.log(`[Cron] Sent: ${results.emailsSent}, Failed: ${results.emailsFailed}, Follow-ups: ${results.followupsGenerated}, Replies: ${results.repliesFound}`)
 
   return NextResponse.json(results)
 }
