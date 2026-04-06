@@ -178,9 +178,12 @@ export default function CampaignDetailPage() {
           <h2 className="text-lg font-semibold mb-1">Step 1: Upload Contacts</h2>
           <p className="text-sm text-slate-500 mb-4">Required: First Name, Last Name, Email, Company, Title (Apollo CSV exports work directly)</p>
 
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center mb-4">
-            <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)} className="text-sm" />
+          <div className="mb-4">
+            <label className="flex items-center gap-3 bg-slate-50 border border-slate-300 rounded-lg p-4 cursor-pointer hover:bg-slate-100 transition">
+              <Upload className="w-5 h-5 text-slate-500 flex-shrink-0" />
+              <span className="text-sm text-slate-600">{file ? file.name : 'Click to select a CSV file'}</span>
+              <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] || null)} className="hidden" />
+            </label>
           </div>
 
           {file && <p className="text-sm text-slate-600 mb-4">Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)</p>}
