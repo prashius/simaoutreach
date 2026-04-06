@@ -109,11 +109,39 @@ export async function GET() {
       )
     `
 
-    // Migrations — safe to re-run (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS)
+    // Click tracking table
+    await sql`
+      CREATE TABLE IF NOT EXISTS click_tracking (
+        id            SERIAL PRIMARY KEY,
+        email_send_id INTEGER NOT NULL REFERENCES email_sends(id),
+        user_id       TEXT NOT NULL REFERENCES users(id),
+        campaign_id   TEXT NOT NULL REFERENCES campaigns(id),
+        original_url  TEXT NOT NULL,
+        link_index    INTEGER DEFAULT 0,
+        clicked_at    TIMESTAMPTZ,
+        click_count   INTEGER DEFAULT 0,
+        ip_address    TEXT,
+        user_agent    TEXT,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `
+
+    // Migrations — safe to re-run
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS refinements_used INTEGER DEFAULT 0`
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS refinements_limit INTEGER DEFAULT 30`
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS followup_day3 BOOLEAN DEFAULT true`
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS followup_day7 BOOLEAN DEFAULT true`
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS followup_day14 BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS send_interval_seconds INTEGER DEFAULT 60`
+
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS parent_send_id INTEGER`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS click_count INTEGER DEFAULT 0`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ`
 
     // Indexes
+    await sql`CREATE INDEX IF NOT EXISTS idx_click_tracking_send ON click_tracking(email_send_id)`
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id)`
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_campaign ON contacts(campaign_id)`
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(user_id, email)`
