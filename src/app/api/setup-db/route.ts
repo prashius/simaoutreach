@@ -109,6 +109,10 @@ export async function GET() {
       )
     `
 
+    // Migrations — safe to re-run (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS)
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS refinements_used INTEGER DEFAULT 0`
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS refinements_limit INTEGER DEFAULT 30`
+
     // Indexes
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id)`
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_campaign ON contacts(campaign_id)`

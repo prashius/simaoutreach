@@ -362,8 +362,6 @@ export default function CampaignDetailPage() {
                             <ChatEditor
                               emailId={email.id}
                               campaignId={campaignId}
-                              currentSubject={email.subject || ''}
-                              currentBody={email.body || ''}
                               token={token}
                               onUpdate={(s, b) => handleChatUpdate(email.id, s, b)}
                             />

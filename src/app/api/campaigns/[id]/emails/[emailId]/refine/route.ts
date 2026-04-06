@@ -14,11 +14,29 @@ export async function POST(
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!DEEPSEEK_API_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
 
-  const { emailId } = await params
+  const { id: campaignId, emailId } = await params
   const { instruction } = await request.json()
 
   if (!instruction) {
     return NextResponse.json({ error: 'Instruction required' }, { status: 400 })
+  }
+
+  // Check refinement limit
+  const campaignRows = await sql`
+    SELECT refinements_used, refinements_limit FROM campaigns
+    WHERE id = ${campaignId} AND user_id = ${auth.userId}
+  `
+  if (campaignRows.length === 0) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+  const used = campaignRows[0].refinements_used || 0
+  const limit = campaignRows[0].refinements_limit || 30
+  if (used >= limit) {
+    return NextResponse.json({
+      error: `Refinement limit reached (${limit}). Try again tomorrow or upgrade your plan.`,
+      refinementsUsed: used,
+      refinementsLimit: limit,
+    }, { status: 429 })
   }
 
   // Fetch current email with contact info
@@ -78,15 +96,20 @@ RULES:
     return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
   }
 
-  // Update email
+  // Update email + increment refinement count
   await sql`
     UPDATE email_sends
     SET subject = ${parsed.subject}, body = ${parsed.body}, edited_by_user = true
     WHERE id = ${Number(emailId)} AND user_id = ${auth.userId}
   `
+  await sql`
+    UPDATE campaigns SET refinements_used = refinements_used + 1 WHERE id = ${campaignId}
+  `
 
   return NextResponse.json({
     subject: parsed.subject,
     body: parsed.body,
+    refinementsUsed: used + 1,
+    refinementsLimit: limit,
   })
 }

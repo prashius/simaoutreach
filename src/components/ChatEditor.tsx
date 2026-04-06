@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Loader2, Wand2 } from 'lucide-react'
+import { Send, Loader2, Wand2, AlertCircle } from 'lucide-react'
 
 interface ChatMessage {
   role: 'user' | 'ai'
@@ -11,27 +11,26 @@ interface ChatMessage {
 interface Props {
   emailId: number
   campaignId: string
-  currentSubject: string
-  currentBody: string
   token: string
   onUpdate: (subject: string, body: string) => void
 }
 
-export default function ChatEditor({ emailId, campaignId, currentSubject, currentBody, token, onUpdate }: Props) {
+export default function ChatEditor({ emailId, campaignId, token, onUpdate }: Props) {
   const [instruction, setInstruction] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [scope, setScope] = useState<'single' | 'all'>('single')
-  const [batchResult, setBatchResult] = useState<string | null>(null)
+  const [refinementsUsed, setRefinementsUsed] = useState<number | null>(null)
+  const [refinementsLimit, setRefinementsLimit] = useState(30)
+  const [limitReached, setLimitReached] = useState(false)
 
   const handleSubmit = async () => {
-    if (!instruction.trim() || loading) return
+    if (!instruction.trim() || loading || limitReached) return
 
     const userMsg = instruction.trim()
     setMessages(prev => [...prev, { role: 'user', text: userMsg }])
     setInstruction('')
     setLoading(true)
-    setBatchResult(null)
 
     try {
       if (scope === 'single') {
@@ -41,11 +40,21 @@ export default function ChatEditor({ emailId, campaignId, currentSubject, curren
           body: JSON.stringify({ instruction: userMsg }),
         })
         const data = await res.json()
+        if (res.status === 429) {
+          setLimitReached(true)
+          setMessages(prev => [...prev, { role: 'ai', text: data.error }])
+          return
+        }
         if (!res.ok) throw new Error(data.error)
+
+        if (data.refinementsUsed != null) {
+          setRefinementsUsed(data.refinementsUsed)
+          setRefinementsLimit(data.refinementsLimit)
+        }
 
         setMessages(prev => [...prev, {
           role: 'ai',
-          text: `Updated subject: "${data.subject}"\n\nUpdated body (preview): ${data.body.slice(0, 120)}...`
+          text: `Updated subject: "${data.subject}"\n\nPreview: ${data.body.slice(0, 120)}...`
         }])
         onUpdate(data.subject, data.body)
       } else {
@@ -55,11 +64,22 @@ export default function ChatEditor({ emailId, campaignId, currentSubject, curren
           body: JSON.stringify({ instruction: userMsg }),
         })
         const data = await res.json()
+        if (res.status === 429) {
+          setLimitReached(true)
+          setMessages(prev => [...prev, { role: 'ai', text: data.error }])
+          return
+        }
         if (!res.ok) throw new Error(data.error)
 
-        const msg = `Applied to ${data.updated}/${data.total} emails.${data.failed > 0 ? ` ${data.failed} failed.` : ''}`
-        setMessages(prev => [...prev, { role: 'ai', text: msg }])
-        setBatchResult(msg)
+        if (data.refinementsUsed != null) {
+          setRefinementsUsed(data.refinementsUsed)
+          setRefinementsLimit(data.refinementsLimit)
+        }
+
+        setMessages(prev => [...prev, {
+          role: 'ai',
+          text: `Applied to ${data.updated}/${data.total} emails.${data.failed > 0 ? ` ${data.failed} failed.` : ''}`
+        }])
       }
     } catch (err) {
       setMessages(prev => [...prev, {
@@ -78,26 +98,29 @@ export default function ChatEditor({ emailId, campaignId, currentSubject, curren
         <div className="flex items-center gap-2">
           <Wand2 className="w-4 h-4 text-orange-500" />
           <span className="text-xs font-semibold text-slate-700">AI Editor</span>
+          {refinementsUsed != null && (
+            <span className="text-[10px] text-slate-400">{refinementsUsed}/{refinementsLimit} refinements used</span>
+          )}
         </div>
         <div className="flex items-center gap-1 bg-slate-100 rounded-full p-0.5">
-          <button
-            onClick={() => setScope('single')}
-            className={`px-3 py-1 rounded-full text-[11px] font-medium transition ${
-              scope === 'single' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-            }`}
-          >
+          <button onClick={() => setScope('single')}
+            className={`px-3 py-1 rounded-full text-[11px] font-medium transition ${scope === 'single' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
             This email
           </button>
-          <button
-            onClick={() => setScope('all')}
-            className={`px-3 py-1 rounded-full text-[11px] font-medium transition ${
-              scope === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-            }`}
-          >
+          <button onClick={() => setScope('all')}
+            className={`px-3 py-1 rounded-full text-[11px] font-medium transition ${scope === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
             All drafts
           </button>
         </div>
       </div>
+
+      {/* Limit reached banner */}
+      {limitReached && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <span className="text-xs text-amber-700">Refinement limit reached. Upgrade your plan or try again tomorrow.</span>
+        </div>
+      )}
 
       {/* Messages */}
       {messages.length > 0 && (
@@ -129,16 +152,16 @@ export default function ChatEditor({ emailId, campaignId, currentSubject, curren
           value={instruction}
           onChange={e => setInstruction(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
-          placeholder={scope === 'single'
-            ? "e.g. 'make it shorter', 'add their funding round'"
+          placeholder={limitReached ? 'Refinement limit reached'
+            : scope === 'single' ? "e.g. 'make it shorter', 'add their funding round'"
             : "e.g. 'make all emails more casual', 'remove product pitch'"
           }
           className="flex-1 text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
-          disabled={loading}
+          disabled={loading || limitReached}
         />
         <button
           onClick={handleSubmit}
-          disabled={!instruction.trim() || loading}
+          disabled={!instruction.trim() || loading || limitReached}
           className="p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition disabled:opacity-50"
         >
           <Send className="w-4 h-4" />

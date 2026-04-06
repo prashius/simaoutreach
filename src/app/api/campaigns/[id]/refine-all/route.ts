@@ -21,6 +21,22 @@ export async function POST(
     return NextResponse.json({ error: 'Instruction required' }, { status: 400 })
   }
 
+  // Check refinement limit
+  const campaignRows = await sql`
+    SELECT refinements_used, refinements_limit FROM campaigns
+    WHERE id = ${campaignId} AND user_id = ${auth.userId}
+  `
+  if (campaignRows.length === 0) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+  const used = campaignRows[0].refinements_used || 0
+  const limit = campaignRows[0].refinements_limit || 30
+  if (used >= limit) {
+    return NextResponse.json({
+      error: `Refinement limit reached (${limit}). Try again tomorrow or upgrade your plan.`,
+    }, { status: 429 })
+  }
+
   // Fetch all draft emails
   const emails = await sql`
     SELECT es.id, es.subject, es.body, c.first_name, c.last_name, c.company_name, c.title
@@ -91,12 +107,20 @@ RULES:
         WHERE id = ${email.id}
       `
       updated++
+
+      // Check if we've hit the limit mid-batch
+      if (used + updated >= limit) break
     } catch {
       failed++
     }
   }
 
-  return NextResponse.json({ updated, failed, total: emails.length })
+  // Increment refinement count
+  await sql`
+    UPDATE campaigns SET refinements_used = refinements_used + ${updated} WHERE id = ${campaignId}
+  `
+
+  return NextResponse.json({ updated, failed, total: emails.length, refinementsUsed: used + updated, refinementsLimit: limit })
 }
 
 export const maxDuration = 300

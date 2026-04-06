@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Lightbulb } from 'lucide-react'
+import { ChevronDown, ChevronUp, Lightbulb, CheckCircle2 } from 'lucide-react'
 import type { EmailScore } from '@/lib/email-scorer'
 
 function ScoreBadge({ score, size = 'sm' }: { score: number; size?: 'sm' | 'lg' }) {
@@ -45,6 +45,15 @@ export default function EmailScoreCard({ score }: { score: EmailScore }) {
 
   return (
     <div className="mt-3">
+      {/* Good to Send banner */}
+      {score.overall >= 75 && (
+        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <span className="text-sm font-medium text-green-700">Good to send!</span>
+          <span className="text-xs text-green-600">Score {score.overall}/100 — this email is ready.</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 flex-wrap">
         <ScoreBadge score={score.overall} size="lg" />
         <Pill label="Personal" value={`${score.personalization.score}`} variant={score.personalization.score >= 60 ? 'green' : score.personalization.score >= 30 ? 'yellow' : 'red'} />
