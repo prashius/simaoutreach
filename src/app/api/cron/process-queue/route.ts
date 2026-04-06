@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/smtp'
 import { wrapUrlsForTracking } from '@/lib/url-tracker'
 import { processFollowups } from '@/lib/followup-generator'
 import { processAllReplies } from '@/lib/reply-tracker'
+import { decrypt } from '@/lib/encryption'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
             host: email.smtp_host,
             port: email.smtp_port || 465,
             user: email.smtp_user,
-            pass: email.smtp_pass,
+            pass: decrypt(email.smtp_pass),
             from: email.smtp_from,
             fromName: email.smtp_from_name || undefined,
           },

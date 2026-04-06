@@ -2,16 +2,10 @@ import * as imapSimple from 'imap-simple'
 import { simpleParser } from 'mailparser'
 import sql from '@/lib/db'
 import axios from 'axios'
+import { decrypt } from '@/lib/encryption'
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1'
-
-interface ImapConfig {
-  host: string
-  port: number
-  user: string
-  pass: string
-}
 
 /**
  * Check for replies to sent emails for a single user.
@@ -55,7 +49,7 @@ export async function checkRepliesForUser(userId: string): Promise<{ found: numb
         host: user.imap_host,
         port: user.imap_port || 993,
         user: user.smtp_user,
-        password: user.smtp_pass,
+        password: decrypt(user.smtp_pass),
         tls: true,
         tlsOptions: { rejectUnauthorized: false },
         authTimeout: 10000,
@@ -83,12 +77,10 @@ export async function checkRepliesForUser(userId: string): Promise<{ found: numb
           const msg = messages[0]
           const all = msg.parts.find((p: any) => p.which === '')
           let replySnippet = ''
-          let replySubject = ''
 
           if (all) {
             const parsed = await simpleParser(all.body)
             replySnippet = (parsed.text || '').slice(0, 500)
-            replySubject = parsed.subject || ''
           }
 
           // Classify the reply

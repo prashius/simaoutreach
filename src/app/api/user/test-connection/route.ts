@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
+import { decrypt } from '@/lib/encryption'
 
 export async function POST(request: NextRequest) {
   const auth = await verifyAuthToken(request)
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       host: u.smtp_host,
       port: u.smtp_port || 465,
       secure: (u.smtp_port || 465) === 465,
-      auth: { user: u.smtp_user, pass: u.smtp_pass },
+      auth: { user: u.smtp_user, pass: decrypt(u.smtp_pass) },
       connectionTimeout: 10000,
     })
 

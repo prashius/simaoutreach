@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
 import { sendEmail } from '@/lib/smtp'
+import { decrypt } from '@/lib/encryption'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await verifyAuthToken(request)
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           host: user.smtp_host,
           port: user.smtp_port || 465,
           user: user.smtp_user,
-          pass: user.smtp_pass,
+          pass: decrypt(user.smtp_pass),
           from: user.smtp_from,
           fromName: user.smtp_from_name || undefined,
         },
