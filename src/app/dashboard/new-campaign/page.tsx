@@ -19,6 +19,7 @@ export default function NewCampaignPage() {
   const [senderEmail, setSenderEmail] = useState('')
   const [productDescription, setProductDescription] = useState('')
   const [callToAction, setCallToAction] = useState('Would you be open to a quick 15-minute call?')
+  const [openTracking, setOpenTracking] = useState(false)
 
   // Step 2: CSV upload
   const [campaignId, setCampaignId] = useState('')
@@ -36,7 +37,7 @@ export default function NewCampaignPage() {
       const res = await fetch('/api/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, mode, senderName, senderEmail, productDescription, callToAction }),
+        body: JSON.stringify({ name, mode, senderName, senderEmail, productDescription, callToAction, openTracking }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -160,6 +161,25 @@ export default function NewCampaignPage() {
             <input value={callToAction} onChange={e => setCallToAction(e.target.value)}
               className="w-full p-3 border border-slate-300 rounded-lg text-sm" />
           </div>
+
+          {/* Open Tracking Toggle */}
+          <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <input
+              type="checkbox"
+              checked={openTracking}
+              onChange={e => setOpenTracking(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+            />
+            <div>
+              <p className="text-sm font-medium text-slate-800">Enable open tracking</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Tracks when recipients open your email using a tracking pixel.
+                Sends as HTML — may slightly reduce inbox placement for cold emails.
+                Click tracking works regardless of this setting.
+              </p>
+            </div>
+          </div>
+
           <button onClick={createCampaign} disabled={loading}
             className="w-full bg-orange-500 text-white py-3 rounded-lg font-medium hover:bg-orange-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
             {loading ? 'Creating...' : <>Next: Upload Contacts <ArrowRight className="w-4 h-4" /></>}

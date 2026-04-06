@@ -36,10 +36,12 @@ export async function GET(request: NextRequest) {
       SELECT es.id, es.user_id, es.campaign_id, es.contact_id, es.subject, es.body,
              es.in_reply_to, es.send_type,
              c.email as contact_email, c.first_name as contact_first_name, c.last_name as contact_last_name,
-             u.smtp_host, u.smtp_port, u.smtp_user, u.smtp_pass, u.smtp_from, u.smtp_from_name
+             u.smtp_host, u.smtp_port, u.smtp_user, u.smtp_pass, u.smtp_from, u.smtp_from_name,
+             camp.open_tracking
       FROM email_sends es
       JOIN contacts c ON c.id = es.contact_id
       JOIN users u ON u.id = es.user_id
+      JOIN campaigns camp ON camp.id = es.campaign_id
       WHERE es.status = 'approved'
         AND (es.scheduled_at IS NULL OR es.scheduled_at <= NOW())
         AND u.smtp_host IS NOT NULL
@@ -74,6 +76,7 @@ export async function GET(request: NextRequest) {
             subject: email.subject,
             body: trackedBody,
             inReplyTo: email.in_reply_to || undefined,
+            openTracking: email.open_tracking ? { enabled: true, sendId: email.id } : undefined,
           }
         )
 

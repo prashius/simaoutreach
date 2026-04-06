@@ -21,15 +21,15 @@ export async function POST(request: NextRequest) {
   const auth = await verifyAuthToken(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, mode, senderName, senderEmail, productDescription, callToAction } = await request.json()
+  const { name, mode, senderName, senderEmail, productDescription, callToAction, openTracking } = await request.json()
 
   if (!name) {
     return NextResponse.json({ error: 'Campaign name required' }, { status: 400 })
   }
 
   const result = await sql`
-    INSERT INTO campaigns (user_id, name, mode, sender_name, sender_email, product_description, call_to_action)
-    VALUES (${auth.userId}, ${name}, ${mode || 'simple'}, ${senderName || null}, ${senderEmail || null}, ${productDescription || null}, ${callToAction || null})
+    INSERT INTO campaigns (user_id, name, mode, sender_name, sender_email, product_description, call_to_action, open_tracking)
+    VALUES (${auth.userId}, ${name}, ${mode || 'simple'}, ${senderName || null}, ${senderEmail || null}, ${productDescription || null}, ${callToAction || null}, ${openTracking || false})
     RETURNING *
   `
 
