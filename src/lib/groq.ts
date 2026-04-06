@@ -1,8 +1,7 @@
 import axios from 'axios'
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
-const GROQ_API_URL = 'https://api.groq.com/openai/v1'
-const GROQ_MODEL = 'openai/gpt-oss-120b'
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1'
 
 interface GeneratedEmail {
   subject: string
@@ -10,7 +9,7 @@ interface GeneratedEmail {
 }
 
 /**
- * Generate a personalized cold email using Groq
+ * Generate a personalized cold email using DeepSeek
  */
 export async function generateColdEmail(opts: {
   firstName: string
@@ -24,7 +23,7 @@ export async function generateColdEmail(opts: {
   productDescription: string
   callToAction: string
 }): Promise<GeneratedEmail> {
-  if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY not configured')
+  if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
 
   const hasPersonResearch = opts.personResearch && !opts.personResearch.includes('No professional public statements found')
 
@@ -63,21 +62,20 @@ SENDER: ${opts.senderName}${opts.senderTitle ? `, ${opts.senderTitle}` : ''}
 Generate the cold email. Return ONLY JSON.`
 
   const response = await axios.post(
-    `${GROQ_API_URL}/chat/completions`,
+    `${DEEPSEEK_API_URL}/chat/completions`,
     {
-      model: GROQ_MODEL,
+      model: 'deepseek-chat',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
       max_tokens: 1000,
-      response_format: { type: 'json_object' },
     },
     {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
     }
   )
