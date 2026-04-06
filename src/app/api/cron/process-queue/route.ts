@@ -12,12 +12,34 @@ const CRON_SECRET = process.env.CRON_SECRET
  * 1. Send approved/scheduled emails (respecting send intervals)
  * 2. Generate follow-ups for eligible sent emails
  *
- * Auth: Bearer token matching CRON_SECRET env var
+ * Auth: query param ?secret=, or Basic Auth, or Bearer token
  */
 export async function GET(request: NextRequest) {
-  // Verify cron auth
-  const authHeader = request.headers.get('authorization')
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+  // Verify cron auth — support multiple methods
+  const { searchParams } = new URL(request.url)
+  const querySecret = searchParams.get('secret')
+  const authHeader = request.headers.get('authorization') || ''
+
+  let authorized = false
+
+  if (CRON_SECRET) {
+    // Method 1: ?secret= query param
+    if (querySecret === CRON_SECRET) authorized = true
+
+    // Method 2: Bearer token
+    if (authHeader === `Bearer ${CRON_SECRET}`) authorized = true
+
+    // Method 3: Basic auth (username ignored, password = secret)
+    if (authHeader.startsWith('Basic ')) {
+      try {
+        const decoded = atob(authHeader.slice(6))
+        const password = decoded.split(':')[1]
+        if (password === CRON_SECRET) authorized = true
+      } catch {}
+    }
+  }
+
+  if (!CRON_SECRET || !authorized) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
