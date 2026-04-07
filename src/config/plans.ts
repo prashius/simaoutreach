@@ -1,33 +1,31 @@
 export const PLANS = {
   FREE: {
     name: 'Free',
-    emails: 0,
+    emails: 5,
     priceUSD: 0,
     priceINR: 0,
+    deepResearch: false,
   },
   STARTER: {
     name: 'Starter',
     emails: 50,
-    priceUSD: 700, // cents
-    priceINR: 59900, // paise
+    priceUSD: 1900, // cents ($19)
+    priceINR: 159900, // paise (₹1,599)
+    deepResearch: true,
   },
   GROWTH: {
     name: 'Growth',
-    emails: 200,
-    priceUSD: 1900,
-    priceINR: 159900,
+    emails: 150,
+    priceUSD: 3900, // $39
+    priceINR: 329900,
+    deepResearch: true,
   },
   PRO: {
     name: 'Pro',
-    emails: 500,
-    priceUSD: 3900,
-    priceINR: 329900,
-  },
-  SCALE: {
-    name: 'Scale',
-    emails: 2000,
-    priceUSD: 9900,
-    priceINR: 829900,
+    emails: 400,
+    priceUSD: 7900, // $79
+    priceINR: 659900,
+    deepResearch: true,
   },
 } as const
 

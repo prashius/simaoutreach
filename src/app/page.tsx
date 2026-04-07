@@ -26,16 +26,18 @@ export default function LandingPage() {
         <section className="max-w-4xl mx-auto px-4 pt-20 pb-16 text-center">
           <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
             <Zap className="w-4 h-4" />
-            AI Outreach Studio
+            AI Outreach Intelligence for Founders
           </div>
           <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-4 leading-tight">
-            50 cold emails.<br />
-            Each one researched.<br />
-            Each one unique.<br />
-            <span className="text-orange-500">$7.</span>
+            Know if your cold emails<br />
+            will work — <span className="text-orange-500">before</span><br />
+            you hit send.
           </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8">
-            The AI outreach studio that researches, writes, scores, and improves every email — before you hit send. Not a template engine. A production studio.
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-4">
+            AI researches every prospect live, writes a unique email, scores it on 5 dimensions, and auto-improves anything below 75. You get a verdict — not a draft.
+          </p>
+          <p className="text-sm text-slate-500 max-w-lg mx-auto mb-8">
+            Built for founders doing their own outbound. Turn 5 hours of research and writing into 2 minutes.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/dashboard/new-campaign" className="flex items-center gap-2 bg-orange-500 text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-orange-600 transition text-lg">
@@ -139,11 +141,11 @@ export default function LandingPage() {
               <div className="border-2 border-orange-400 rounded-xl p-6 bg-orange-50/50">
                 <h3 className="text-lg font-semibold text-orange-600 mb-4">Using SimaOutreach</h3>
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between"><span>50 AI-researched, scored, auto-improved emails</span><span className="font-semibold">$7</span></div>
-                  <div className="flex justify-between"><span>Live web research per prospect</span><span className="font-semibold text-green-600">Included</span></div>
+                  <div className="flex justify-between"><span>50 AI-researched, scored, auto-improved emails</span><span className="font-semibold">$19</span></div>
+                  <div className="flex justify-between"><span>Company + person research per prospect</span><span className="font-semibold text-green-600">Included</span></div>
                   <div className="flex justify-between"><span>5-dimension scoring + auto-revision</span><span className="font-semibold text-green-600">Included</span></div>
-                  <div className="flex justify-between"><span>Smart follow-ups (Day 3 + Day 7)</span><span className="font-semibold text-green-600">Included</span></div>
-                  <div className="flex justify-between border-t pt-3 text-base"><span className="font-bold">Total</span><span className="font-bold text-orange-600">$7</span></div>
+                  <div className="flex justify-between"><span>Smart follow-ups + verdict per email</span><span className="font-semibold text-green-600">Included</span></div>
+                  <div className="flex justify-between border-t pt-3 text-base"><span className="font-bold">Total</span><span className="font-bold text-orange-600">$19</span></div>
                 </div>
               </div>
             </div>
@@ -177,15 +179,14 @@ export default function LandingPage() {
         {/* Pricing */}
         <section className="py-16">
           <div className="max-w-5xl mx-auto px-4 text-center">
-            <h2 className="text-2xl font-bold mb-3">Simple Pricing. Pay Per Campaign.</h2>
-            <p className="text-slate-500 mb-10">No subscriptions required. Each plan gives you AI-researched, scored, auto-improved emails.</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <h2 className="text-2xl font-bold mb-3">Campaign Intelligence, Not Email Volume</h2>
+            <p className="text-slate-500 mb-10">Every paid plan includes deep research (company + person), scoring, auto-revision, and smart follow-ups.</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { name: 'Free', emails: 5, price: '$0', per: 'No card needed', highlight: false, free: true },
-                { name: 'Starter', emails: 50, price: '$7', per: '$0.14/email', highlight: false },
-                { name: 'Growth', emails: 200, price: '$19', per: '$0.10/email', highlight: false },
-                { name: 'Pro', emails: 500, price: '$39', per: '$0.08/email', highlight: true },
-                { name: 'Scale', emails: 2000, price: '$99', per: '$0.05/email', highlight: false },
+                { name: 'Free', emails: 5, price: '$0', per: 'Company research only', highlight: false, free: true, features: 'Score + auto-revise' },
+                { name: 'Starter', emails: 50, price: '$19', per: '$0.38/email', highlight: false, features: 'Company + person research' },
+                { name: 'Growth', emails: 150, price: '$39', per: '$0.26/email', highlight: true, features: 'Company + person research' },
+                { name: 'Pro', emails: 400, price: '$79', per: '$0.20/email', highlight: false, features: 'Company + person research' },
               ].map((plan: any, i) => (
                 <div key={i} className={`rounded-xl p-5 border ${plan.highlight ? 'border-orange-400 bg-orange-50 ring-1 ring-orange-400' : plan.free ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-white'}`}>
                   {plan.highlight && <p className="text-[10px] font-bold uppercase tracking-wider text-orange-600 mb-2">Most Popular</p>}
@@ -194,6 +195,7 @@ export default function LandingPage() {
                   <p className="text-2xl font-bold text-slate-900 mt-1">{plan.price}</p>
                   <p className="text-xs text-slate-500 mt-1">{plan.emails} emails</p>
                   <p className="text-[10px] text-slate-400">{plan.per}</p>
+                  <p className="text-[10px] text-orange-600 font-medium mt-2">{plan.features}</p>
                 </div>
               ))}
             </div>

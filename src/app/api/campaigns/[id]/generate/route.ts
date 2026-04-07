@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
-import { researchCompany } from '@/lib/perplexity'
+import { researchCompany, researchPerson } from '@/lib/perplexity'
 import { generateColdEmail } from '@/lib/groq'
 import { checkCredits, deductCredits } from '@/lib/usage'
 import { decryptOptional, encrypt } from '@/lib/encryption'
@@ -153,6 +153,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'No credits remaining' }, { status: 402 })
     }
 
+    // Check if user has paid plan (deep research enabled)
+    const userRows = await sql`SELECT plan FROM users WHERE id = ${auth.userId}`
+    const userPlan = userRows[0]?.plan || 'FREE'
+    const isPaid = userPlan !== 'FREE'
+
     // Decrypt contact PII
     const firstName = decryptOptional(contact.first_name) || 'there'
     const lastName = decryptOptional(contact.last_name) || ''
@@ -163,10 +168,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // === STEP 1: Research via Perplexity ===
     const companyResearch = await researchCompany(companyName, firstName, title)
-    const researchFactCount = countFacts(companyResearch)
+
+    // Person research — paid plans only
+    let personResearch: string | undefined
+    if (isPaid) {
+      try {
+        const fullName = `${firstName} ${lastName}`.trim()
+        personResearch = await researchPerson(fullName, title, companyName)
+        // Skip if nothing useful found
+        if (personResearch?.includes('No professional public statements found')) {
+          personResearch = undefined
+        }
+      } catch {
+        // Person research is optional, continue without it
+      }
+    }
+
+    const researchFactCount = countFacts(companyResearch + (personResearch || ''))
 
     // Store research
-    const researchData = JSON.stringify({ company: companyResearch })
+    const researchData = JSON.stringify({ company: companyResearch, person: personResearch || null })
     try {
       await sql`UPDATE contacts SET research_data = ${researchData} WHERE id = ${contact.id}`
     } catch {
@@ -180,6 +201,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       title,
       company: companyName,
       companyResearch,
+      personResearch,
       senderName: campaign.sender_name || 'Team',
       productDescription: campaign.product_description || '',
       callToAction: campaign.call_to_action || 'Would you be open to a quick chat?',

@@ -12,6 +12,7 @@ import CampaignAnalytics from '@/components/CampaignAnalytics'
 import StudioProgress, { type StudioEntry } from '@/components/StudioProgress'
 import ResearchCard from '@/components/ResearchCard'
 import SequencePreview from '@/components/SequencePreview'
+import VerdictCard from '@/components/VerdictCard'
 
 export default function CampaignDetailPage() {
   const { token } = useAuth()
@@ -453,7 +454,18 @@ export default function CampaignDetailPage() {
                             {email.body}
                           </div>
 
-                          {score && <EmailScoreCard score={score} />}
+                          {/* Verdict + Score */}
+                          {score && (
+                            <>
+                              <VerdictCard
+                                score={score}
+                                hookType={emailAny.hook_type}
+                                autoRevised={emailAny.auto_revised}
+                                firstDraftScore={emailAny.first_draft_score}
+                              />
+                              <EmailScoreCard score={score} />
+                            </>
+                          )}
 
                           {/* Sequence preview */}
                           <SequencePreview
