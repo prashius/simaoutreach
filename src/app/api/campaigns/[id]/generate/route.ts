@@ -4,7 +4,7 @@ import { verifyAuthToken } from '@/lib/jwt-auth'
 import { researchCompany } from '@/lib/perplexity'
 import { generateColdEmail } from '@/lib/groq'
 import { checkCredits, deductCredits } from '@/lib/usage'
-import { decryptOptional, encrypt, encryptJson } from '@/lib/encryption'
+import { decryptOptional, encrypt } from '@/lib/encryption'
 
 /**
  * Generate ONE email per request to stay within Vercel Hobby 10s timeout.
@@ -73,11 +73,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Step 1: Research via Perplexity
     const companyResearch = await researchCompany(companyName, firstName, title)
 
-    // Store encrypted research
-    const researchData = { company: companyResearch }
-    await sql`
-      UPDATE contacts SET research_data = ${encryptJson(researchData)} WHERE id = ${contact.id}
-    `
+    // Store research (company research is public info, not PII)
+    const researchData = JSON.stringify({ company: companyResearch })
+    try {
+      await sql`UPDATE contacts SET research_data = ${researchData} WHERE id = ${contact.id}`
+    } catch {
+      // Column might still be JSONB, try as JSON
+      await sql`UPDATE contacts SET research_data = ${JSON.parse(researchData)}::jsonb WHERE id = ${contact.id}`
+    }
 
     // Step 2: Generate email via DeepSeek
     const email = await generateColdEmail({
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       VALUES (
         ${auth.userId}, ${campaignId}, ${contact.id},
         ${encrypt(email.subject)}, ${encrypt(email.body)},
-        'draft', ${encryptJson(researchData)}
+        'draft', ${researchData}
       )
     `
 

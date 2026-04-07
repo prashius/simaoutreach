@@ -145,9 +145,9 @@ export async function GET() {
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_host TEXT`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_port INTEGER`
 
-    // Change JSONB columns to TEXT for encrypted storage
-    await sql`ALTER TABLE contacts ALTER COLUMN research_data TYPE TEXT USING research_data::TEXT`
-    await sql`ALTER TABLE email_sends ALTER COLUMN ai_research TYPE TEXT USING ai_research::TEXT`
+    // Change JSONB columns to TEXT for encrypted storage (safe to re-run)
+    try { await sql`ALTER TABLE contacts ALTER COLUMN research_data TYPE TEXT USING research_data::TEXT` } catch {}
+    try { await sql`ALTER TABLE email_sends ALTER COLUMN ai_research TYPE TEXT USING ai_research::TEXT` } catch {}
 
     // Email hash column for dedup without exposing plain email
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS email_hash TEXT`
