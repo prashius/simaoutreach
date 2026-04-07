@@ -135,6 +135,11 @@ export async function GET() {
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS send_interval_seconds INTEGER DEFAULT 60`
     await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS open_tracking BOOLEAN DEFAULT false`
 
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS first_draft_score INTEGER`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS final_score INTEGER`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS auto_revised BOOLEAN DEFAULT false`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS hook_type TEXT`
+    await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS research_fact_count INTEGER DEFAULT 0`
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS parent_send_id INTEGER`
     await sql`ALTER TABLE email_sends ADD COLUMN IF NOT EXISTS click_count INTEGER DEFAULT 0`

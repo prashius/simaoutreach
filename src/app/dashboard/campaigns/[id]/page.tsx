@@ -9,6 +9,9 @@ import { scoreEmail, type EmailScore } from '@/lib/email-scorer'
 import EmailScoreCard from '@/components/EmailScoreCard'
 import ChatEditor from '@/components/ChatEditor'
 import CampaignAnalytics from '@/components/CampaignAnalytics'
+import StudioProgress, { type StudioEntry } from '@/components/StudioProgress'
+import ResearchCard from '@/components/ResearchCard'
+import SequencePreview from '@/components/SequencePreview'
 
 export default function CampaignDetailPage() {
   const { token } = useAuth()
@@ -26,15 +29,15 @@ export default function CampaignDetailPage() {
   const [error, setError] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(true)
 
-  // Upload state
+  // Upload
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<any>(null)
 
-  // Generate state
+  // Studio generation
   const [generating, setGenerating] = useState(false)
-  const [generateResult, setGenerateResult] = useState<any>(null)
-  const [generateProgress, setGenerateProgress] = useState('')
+  const [studioEntries, setStudioEntries] = useState<StudioEntry[]>([])
+  const [studioStats, setStudioStats] = useState({ completed: 0, avgScore: 0, autoRevised: 0 })
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -51,14 +54,13 @@ export default function CampaignDetailPage() {
 
   useEffect(() => { fetchData() }, [token, campaignId])
 
-  // Compute scores for all emails
+  // Compute scores
   const emailScores = useMemo(() => {
     const map = new Map<number, EmailScore>()
     emails.forEach(email => {
       if (email.subject && email.body) {
         map.set(email.id, scoreEmail(
-          email.subject,
-          email.body,
+          email.subject, email.body,
           [email.contact_first_name, email.contact_last_name].filter(Boolean).join(' '),
           email.contact_company
         ))
@@ -96,14 +98,33 @@ export default function CampaignDetailPage() {
   const generateEmails = async () => {
     setGenerating(true)
     setError('')
-    setGenerateProgress('')
-    let totalGenerated = 0
-    let totalFailed = 0
+    setStudioEntries([])
+    setStudioStats({ completed: 0, avgScore: 0, autoRevised: 0 })
+
+    // Initialize pending entries
+    const totalContacts = campaign?.total_contacts || 0
+    const pendingEntries: StudioEntry[] = Array.from({ length: totalContacts }, (_, i) => ({
+      contactName: `Contact ${i + 1}`,
+      company: '',
+      status: 'pending' as const,
+    }))
+    setStudioEntries(pendingEntries)
+
+    let completed = 0
+    let totalScore = 0
+    let autoRevisedCount = 0
 
     try {
-      // Loop: generate one email per request until done
       while (true) {
-        setGenerateProgress(`Generating email ${totalGenerated + 1}...`)
+        // Update current entry to researching
+        setStudioEntries(prev => {
+          const next = [...prev]
+          if (completed < next.length) {
+            next[completed] = { ...next[completed], status: 'researching' }
+          }
+          return next
+        })
+
         const res = await fetch(`/api/campaigns/${campaignId}/generate`, {
           method: 'POST',
           headers,
@@ -111,26 +132,52 @@ export default function CampaignDetailPage() {
         const data = await res.json()
 
         if (!res.ok) {
+          // Mark current as failed
+          setStudioEntries(prev => {
+            const next = [...prev]
+            if (completed < next.length) {
+              next[completed] = { ...next[completed], status: 'failed', error: data.error }
+            }
+            return next
+          })
           setError(data.error)
           break
         }
 
-        if (data.done) {
-          if (data.generated === 0 && totalGenerated === 0) {
-            setGenerateProgress('All contacts already have emails.')
-          }
-          break
-        }
+        if (data.done && data.generated === 0) break
 
         if (data.generated > 0) {
-          totalGenerated++
-          setGenerateProgress(`Generated ${totalGenerated} emails. ${data.remaining} remaining... (${data.contact})`)
-        } else {
-          totalFailed++
+          // Update entry with results
+          setStudioEntries(prev => {
+            const next = [...prev]
+            next[completed] = {
+              contactName: data.contact || `Contact ${completed + 1}`,
+              company: data.company || '',
+              status: 'done',
+              researchSummary: data.researchSummary,
+              researchFactCount: data.researchFactCount,
+              hookType: data.hookType,
+              firstDraftScore: data.firstDraftScore,
+              finalScore: data.finalScore,
+              autoRevised: data.autoRevised,
+            }
+            return next
+          })
+
+          completed++
+          totalScore += data.finalScore || 0
+          if (data.autoRevised) autoRevisedCount++
+
+          setStudioStats({
+            completed,
+            avgScore: Math.round(totalScore / completed),
+            autoRevised: autoRevisedCount,
+          })
         }
+
+        if (data.done) break
       }
 
-      setGenerateResult({ generated: totalGenerated, failed: totalFailed })
       await fetchData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
@@ -232,7 +279,7 @@ export default function CampaignDetailPage() {
       )}
 
       {/* Upload step */}
-      {!hasContacts && (
+      {!hasContacts && !generating && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-1">Step 1: Upload Contacts</h2>
           <p className="text-sm text-slate-500 mb-4">CSV with First Name, Last Name, Email, Company, Title — or any CSV with an email column</p>
@@ -257,28 +304,32 @@ export default function CampaignDetailPage() {
         </div>
       )}
 
-      {/* Generate step */}
+      {/* Generate step — with Studio progress */}
       {hasContacts && !hasEmails && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-1">Step 2: Generate Personalized Emails</h2>
-          <p className="text-sm text-slate-500 mb-4">
-            AI will research {campaign.total_contacts} contacts and write unique emails.
-            {campaign.mode === 'deep' ? ' Deep mode: ~30s per email.' : ' Simple mode: ~10s per email.'}
-          </p>
-          {generateResult && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-              Generated {generateResult.generated} emails. {generateResult.failed > 0 ? `${generateResult.failed} failed.` : ''}
+        <div className="mb-6">
+          {!generating && studioEntries.length === 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h2 className="text-lg font-semibold mb-1">Step 2: Produce Personalized Emails</h2>
+              <p className="text-sm text-slate-500 mb-4">
+                AI will research {campaign.total_contacts} contacts, write unique emails, score each one, and auto-improve any below 75.
+              </p>
+              <button onClick={generateEmails} disabled={generating}
+                className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50">
+                <Zap className="w-4 h-4" /> Start Producing {campaign.total_contacts} Emails
+              </button>
             </div>
           )}
-          {generating && generateProgress && (
-            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm">
-              {generateProgress}
-            </div>
+
+          {/* Studio progress view */}
+          {(generating || studioEntries.length > 0) && (
+            <StudioProgress
+              entries={studioEntries}
+              totalContacts={campaign.total_contacts}
+              completedCount={studioStats.completed}
+              averageScore={studioStats.avgScore}
+              autoRevisedCount={studioStats.autoRevised}
+            />
           )}
-          <button onClick={generateEmails} disabled={generating}
-            className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50">
-            {generating ? <><Zap className="w-4 h-4 animate-pulse" /> Generating...</> : <><Zap className="w-4 h-4" /> Generate {campaign.total_contacts} Emails</>}
-          </button>
         </div>
       )}
 
@@ -293,7 +344,7 @@ export default function CampaignDetailPage() {
         />
       )}
 
-      {/* Stats bar */}
+      {/* Stats bar + email list */}
       {hasEmails && (
         <>
           <div className="grid grid-cols-4 gap-3 mb-6">
@@ -320,6 +371,7 @@ export default function CampaignDetailPage() {
           <div className="space-y-3">
             {emails.map(email => {
               const score = emailScores.get(email.id)
+              const emailAny = email as any
               return (
                 <div key={email.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                   <button
@@ -336,6 +388,9 @@ export default function CampaignDetailPage() {
                           }`} />
                           <p className="text-sm font-medium truncate">{email.contact_first_name} {email.contact_last_name}</p>
                           <span className="text-xs text-slate-400">{email.contact_company}</span>
+                          {emailAny.auto_revised && (
+                            <span className="text-[10px] text-green-600 font-medium">auto-revised</span>
+                          )}
                           {score && (
                             <span className={`ml-auto flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                               score.overall >= 75 ? 'bg-green-100 text-green-700' :
@@ -354,6 +409,17 @@ export default function CampaignDetailPage() {
 
                   {expandedId === email.id && (
                     <div className="border-t border-slate-100 p-4">
+                      {/* Research card */}
+                      <ResearchCard
+                        contactName={`${email.contact_first_name} ${email.contact_last_name}`}
+                        company={email.contact_company || ''}
+                        researchData={emailAny.ai_research}
+                        hookType={emailAny.hook_type}
+                        firstDraftScore={emailAny.first_draft_score}
+                        finalScore={emailAny.final_score}
+                        autoRevised={emailAny.auto_revised}
+                      />
+
                       {editingId === email.id ? (
                         <div className="space-y-3">
                           <input value={editSubject} onChange={e => setEditSubject(e.target.value)}
@@ -387,10 +453,15 @@ export default function CampaignDetailPage() {
                             {email.body}
                           </div>
 
-                          {/* Score Card */}
                           {score && <EmailScoreCard score={score} />}
 
-                          {/* Chat Editor */}
+                          {/* Sequence preview */}
+                          <SequencePreview
+                            initialSubject={email.subject || ''}
+                            status={email.status}
+                            sentAt={email.sent_at || undefined}
+                          />
+
                           {email.status === 'draft' && token && (
                             <ChatEditor
                               emailId={email.id}
