@@ -58,7 +58,7 @@ export async function GET() {
         last_name     TEXT,
         company_name  TEXT,
         title         TEXT,
-        research_data JSONB,
+        research_data TEXT,
         created_at    TIMESTAMPTZ DEFAULT NOW()
       )
     `
@@ -73,7 +73,7 @@ export async function GET() {
         body          TEXT,
         send_type     TEXT DEFAULT 'initial',
         status        TEXT DEFAULT 'draft',
-        ai_research   JSONB,
+        ai_research   TEXT,
         edited_by_user BOOLEAN DEFAULT false,
         approved_at   TIMESTAMPTZ,
         sent_at       TIMESTAMPTZ,
@@ -144,6 +144,10 @@ export async function GET() {
 
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_host TEXT`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_port INTEGER`
+
+    // Change JSONB columns to TEXT for encrypted storage
+    await sql`ALTER TABLE contacts ALTER COLUMN research_data TYPE TEXT USING research_data::TEXT`
+    await sql`ALTER TABLE email_sends ALTER COLUMN ai_research TYPE TEXT USING ai_research::TEXT`
 
     // Email hash column for dedup without exposing plain email
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS email_hash TEXT`
