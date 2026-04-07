@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
+import { decrypt, decryptOptional, encrypt } from '@/lib/encryption'
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1'
@@ -66,9 +67,9 @@ export async function POST(
               content: `You are refining a cold outreach email based on the user's instruction.
 
 CONTEXT:
-- Contact: ${email.first_name} ${email.last_name || ''}, ${email.title || ''} at ${email.company_name || ''}
-- Current subject: ${email.subject}
-- Current body: ${email.body}
+- Contact: ${decryptOptional(email.first_name) || ''} ${decryptOptional(email.last_name) || ''}, ${email.title || ''} at ${email.company_name || ''}
+- Current subject: ${decrypt(email.subject)}
+- Current body: ${decrypt(email.body)}
 
 RULES:
 - Apply the user's instruction precisely
@@ -103,7 +104,7 @@ RULES:
 
       await sql`
         UPDATE email_sends
-        SET subject = ${parsed.subject}, body = ${parsed.body}, edited_by_user = true
+        SET subject = ${encrypt(parsed.subject)}, body = ${encrypt(parsed.body)}, edited_by_user = true
         WHERE id = ${email.id}
       `
       updated++

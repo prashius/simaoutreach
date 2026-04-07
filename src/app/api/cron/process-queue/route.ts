@@ -4,7 +4,7 @@ import { sendEmail } from '@/lib/smtp'
 import { wrapUrlsForTracking } from '@/lib/url-tracker'
 import { processFollowups } from '@/lib/followup-generator'
 import { processAllReplies } from '@/lib/reply-tracker'
-import { decrypt } from '@/lib/encryption'
+import { decrypt, decryptOptional } from '@/lib/encryption'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -79,9 +79,18 @@ export async function GET(request: NextRequest) {
 
     for (const email of pendingEmails) {
       try {
+        // Decrypt email content for sending
+        const decryptedBody = decrypt(email.body)
+        const decryptedSubject = decrypt(email.subject)
+        const decryptedContactEmail = decrypt(email.contact_email)
+        const decryptedContactName = [
+          decryptOptional(email.contact_first_name),
+          decryptOptional(email.contact_last_name),
+        ].filter(Boolean).join(' ') || undefined
+
         // Wrap URLs for click tracking
         const trackedBody = await wrapUrlsForTracking(
-          email.body,
+          decryptedBody,
           email.id,
           email.user_id,
           email.campaign_id
@@ -98,9 +107,9 @@ export async function GET(request: NextRequest) {
             fromName: email.smtp_from_name || undefined,
           },
           {
-            to: email.contact_email,
-            toName: [email.contact_first_name, email.contact_last_name].filter(Boolean).join(' ') || undefined,
-            subject: email.subject,
+            to: decryptedContactEmail,
+            toName: decryptedContactName,
+            subject: decryptedSubject,
             body: trackedBody,
             inReplyTo: email.in_reply_to || undefined,
             openTracking: email.open_tracking ? { enabled: true, sendId: email.id } : undefined,

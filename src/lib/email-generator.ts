@@ -1,6 +1,7 @@
 import sql from '@/lib/db'
 import { researchCompany, researchPerson } from '@/lib/perplexity'
 import { generateColdEmail } from '@/lib/groq'
+import { decrypt, decryptOptional, encrypt, encryptJson } from '@/lib/encryption'
 
 interface GenerateOptions {
   campaignId: string
@@ -14,7 +15,7 @@ interface GenerateOptions {
 
 /**
  * Generate personalized emails for all contacts in a campaign.
- * Returns count of successfully generated emails.
+ * Decrypts contact PII for AI generation, encrypts output before storing.
  */
 export async function generateEmailsForCampaign(opts: GenerateOptions): Promise<{
   generated: number
@@ -37,39 +38,43 @@ export async function generateEmailsForCampaign(opts: GenerateOptions): Promise<
 
   for (const contact of contacts) {
     try {
-      // Step 1: Research via Perplexity
-      const companyResearch = await researchCompany(
-        contact.company_name || 'Unknown',
-        contact.first_name || '',
-        contact.title || ''
-      )
+      // Decrypt contact PII for AI use
+      const firstName = decryptOptional(contact.first_name) || 'there'
+      const lastName = decryptOptional(contact.last_name) || ''
+      const email = decrypt(contact.email)
+      const companyName = contact.company_name || 'Unknown'
+      const title = contact.title || 'Professional'
+
+      // Step 1: Research via Perplexity (uses plain text for search)
+      const companyResearch = await researchCompany(companyName, firstName, title)
 
       let personResearch: string | undefined
       if (opts.mode === 'deep') {
         try {
           personResearch = await researchPerson(
-            `${contact.first_name} ${contact.last_name || ''}`.trim(),
-            contact.title || '',
-            contact.company_name || ''
+            `${firstName} ${lastName}`.trim(),
+            title,
+            companyName
           )
         } catch {
-          // Person research is optional, continue without it
+          // Person research is optional
         }
       }
 
-      // Store research on contact
+      // Store encrypted research on contact
+      const researchData = { company: companyResearch, person: personResearch }
       await sql`
         UPDATE contacts
-        SET research_data = ${JSON.stringify({ company: companyResearch, person: personResearch })}
+        SET research_data = ${encryptJson(researchData)}
         WHERE id = ${contact.id}
       `
 
-      // Step 2: Generate email via Groq
-      const email = await generateColdEmail({
-        firstName: contact.first_name || 'there',
-        lastName: contact.last_name || undefined,
-        title: contact.title || 'Professional',
-        company: contact.company_name || 'your company',
+      // Step 2: Generate email via DeepSeek
+      const generatedEmail = await generateColdEmail({
+        firstName,
+        lastName: lastName || undefined,
+        title,
+        company: companyName,
         companyResearch,
         personResearch,
         senderName: opts.senderName,
@@ -78,23 +83,22 @@ export async function generateEmailsForCampaign(opts: GenerateOptions): Promise<
         callToAction: opts.callToAction,
       })
 
-      // Step 3: Insert email_send record
+      // Step 3: Store encrypted email content
       await sql`
         INSERT INTO email_sends (user_id, campaign_id, contact_id, subject, body, status, ai_research)
         VALUES (
           ${opts.userId},
           ${opts.campaignId},
           ${contact.id},
-          ${email.subject},
-          ${email.body},
+          ${encrypt(generatedEmail.subject)},
+          ${encrypt(generatedEmail.body)},
           'draft',
-          ${JSON.stringify({ company: companyResearch, person: personResearch })}
+          ${encryptJson(researchData)}
         )
       `
 
       generated++
 
-      // Update campaign count
       await sql`
         UPDATE campaigns
         SET emails_generated = emails_generated + 1, updated_at = NOW()
@@ -102,13 +106,12 @@ export async function generateEmailsForCampaign(opts: GenerateOptions): Promise<
       `
     } catch (err) {
       failed++
-      const msg = `Failed for ${contact.email}: ${err instanceof Error ? err.message : String(err)}`
+      const msg = `Failed for contact ${contact.id}: ${err instanceof Error ? err.message : String(err)}`
       errors.push(msg)
       console.error(`[EmailGenerator] ${msg}`)
     }
   }
 
-  // Update campaign status
   const newStatus = generated > 0 ? 'ready' : 'draft'
   await sql`
     UPDATE campaigns SET status = ${newStatus}, updated_at = NOW()

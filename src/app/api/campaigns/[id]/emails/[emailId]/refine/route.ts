@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
+import { decrypt, decryptOptional, encrypt } from '@/lib/encryption'
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1'
@@ -50,7 +51,16 @@ export async function POST(
     return NextResponse.json({ error: 'Email not found' }, { status: 404 })
   }
 
-  const email = rows[0]
+  const raw = rows[0]
+  // Decrypt stored PII
+  const email = {
+    subject: decrypt(raw.subject),
+    body: decrypt(raw.body),
+    first_name: decryptOptional(raw.first_name) || '',
+    last_name: decryptOptional(raw.last_name) || '',
+    company_name: raw.company_name || '',
+    title: raw.title || '',
+  }
 
   const response = await axios.post(
     `${DEEPSEEK_API_URL}/chat/completions`,
@@ -62,7 +72,7 @@ export async function POST(
           content: `You are refining a cold outreach email based on the user's instruction.
 
 CONTEXT:
-- Contact: ${email.first_name} ${email.last_name || ''}, ${email.title || ''} at ${email.company_name || ''}
+- Contact: ${email.first_name} ${email.last_name}, ${email.title} at ${email.company_name}
 - Current subject: ${email.subject}
 - Current body: ${email.body}
 
@@ -96,10 +106,10 @@ RULES:
     return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
   }
 
-  // Update email + increment refinement count
+  // Update email (encrypt before storing) + increment refinement count
   await sql`
     UPDATE email_sends
-    SET subject = ${parsed.subject}, body = ${parsed.body}, edited_by_user = true
+    SET subject = ${encrypt(parsed.subject)}, body = ${encrypt(parsed.body)}, edited_by_user = true
     WHERE id = ${Number(emailId)} AND user_id = ${auth.userId}
   `
   await sql`

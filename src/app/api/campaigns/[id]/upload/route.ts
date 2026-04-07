@@ -3,6 +3,7 @@ import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
 import { parseCSV } from '@/lib/csv-parser'
 import { checkCredits } from '@/lib/usage'
+import { encrypt, hash } from '@/lib/encryption'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await verifyAuthToken(request)
@@ -45,28 +46,50 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }, { status: 402 })
   }
 
-  // Filter against excluded emails
+  // Filter against excluded emails (match by hash)
   const excludedRows = await sql`
-    SELECT email FROM excluded_emails WHERE user_id = ${auth.userId}
+    SELECT email_hash FROM excluded_emails WHERE user_id = ${auth.userId} AND email_hash IS NOT NULL
   `
-  const excludedSet = new Set(excludedRows.map((r: any) => r.email.toLowerCase()))
-  const filtered = valid.filter(c => !excludedSet.has(c.email))
+  // Also check plain text for backwards compat
+  const excludedPlainRows = await sql`
+    SELECT email FROM excluded_emails WHERE user_id = ${auth.userId} AND email_hash IS NULL
+  `
+  const excludedHashes = new Set(excludedRows.map((r: any) => r.email_hash))
+  const excludedPlain = new Set(excludedPlainRows.map((r: any) => r.email.toLowerCase()))
+
+  const filtered = valid.filter(c => {
+    const emailHash = hash(c.email)
+    return !excludedHashes.has(emailHash) && !excludedPlain.has(c.email.toLowerCase())
+  })
   const excludedCount = valid.length - filtered.length
 
-  // Check for contacts already in this campaign
+  // Check for contacts already in this campaign (match by hash)
   const existingRows = await sql`
-    SELECT email FROM contacts WHERE campaign_id = ${campaignId}
+    SELECT email_hash FROM contacts WHERE campaign_id = ${campaignId} AND email_hash IS NOT NULL
   `
-  const existingSet = new Set(existingRows.map((r: any) => r.email.toLowerCase()))
-  const newContacts = filtered.filter(c => !existingSet.has(c.email))
+  const existingPlainRows = await sql`
+    SELECT email FROM contacts WHERE campaign_id = ${campaignId} AND email_hash IS NULL
+  `
+  const existingHashes = new Set(existingRows.map((r: any) => r.email_hash))
+  const existingPlain = new Set(existingPlainRows.map((r: any) => r.email.toLowerCase()))
+
+  const newContacts = filtered.filter(c => {
+    const emailHash = hash(c.email)
+    return !existingHashes.has(emailHash) && !existingPlain.has(c.email.toLowerCase())
+  })
   const alreadyInCampaign = filtered.length - newContacts.length
 
-  // Insert contacts
+  // Insert contacts with encrypted PII
   let inserted = 0
   for (const contact of newContacts) {
+    const emailHash = hash(contact.email)
+    const encryptedEmail = encrypt(contact.email)
+    const encryptedFirstName = contact.first_name ? encrypt(contact.first_name) : null
+    const encryptedLastName = contact.last_name ? encrypt(contact.last_name) : null
+
     await sql`
-      INSERT INTO contacts (user_id, campaign_id, email, first_name, last_name, company_name, title)
-      VALUES (${auth.userId}, ${campaignId}, ${contact.email}, ${contact.first_name}, ${contact.last_name}, ${contact.company_name}, ${contact.title})
+      INSERT INTO contacts (user_id, campaign_id, email, email_hash, first_name, last_name, company_name, title)
+      VALUES (${auth.userId}, ${campaignId}, ${encryptedEmail}, ${emailHash}, ${encryptedFirstName}, ${encryptedLastName}, ${contact.company_name}, ${contact.title})
     `
     inserted++
   }
@@ -84,6 +107,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     invalidRows: invalid.length,
     excludedEmails: excludedCount,
     alreadyInCampaign,
-    invalid: invalid.slice(0, 10), // return first 10 invalid rows for debugging
+    invalid: invalid.slice(0, 10),
   })
 }

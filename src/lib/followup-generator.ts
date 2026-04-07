@@ -1,5 +1,6 @@
 import sql from '@/lib/db'
 import axios from 'axios'
+import { encrypt, decrypt, decryptOptional } from '@/lib/encryption'
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1'
@@ -103,6 +104,12 @@ async function generateFollowup(
 ): Promise<void> {
   if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not configured')
 
+  // Decrypt contact and email data for AI
+  const firstName = decryptOptional(originalEmail.first_name) || ''
+  const lastName = decryptOptional(originalEmail.last_name) || ''
+  const subject = decrypt(originalEmail.subject)
+  const body = decrypt(originalEmail.body)
+
   const response = await axios.post(
     `${DEEPSEEK_API_URL}/chat/completions`,
     {
@@ -113,17 +120,17 @@ async function generateFollowup(
           content: `You are writing a follow-up cold email. This is follow-up #${dayNumber === 3 ? 1 : 2} sent ${dayNumber} business days after the original email.
 
 ORIGINAL EMAIL:
-Subject: ${originalEmail.subject}
-Body: ${originalEmail.body}
+Subject: ${subject}
+Body: ${body}
 
-CONTACT: ${originalEmail.first_name} ${originalEmail.last_name || ''}, ${originalEmail.title || ''} at ${originalEmail.company_name || ''}
+CONTACT: ${firstName} ${lastName}, ${originalEmail.title || ''} at ${originalEmail.company_name || ''}
 
 RULES:
 - This is a follow-up, not a new email. Don't repeat the full pitch.
 - Keep it under 80 words. Short and direct.
 - ${dayNumber === 3 ? 'Gently follow up. Add a new angle or value point not in the original.' : 'Final follow-up. Be direct. Offer a specific next step or gracefully close.'}
 - Don't start with "Just following up" or "Hope you're well" — be direct.
-- Start with "Hi ${originalEmail.first_name},"
+- Start with "Hi ${firstName},"
 - End with sender name only.
 - Return JSON: {"body": "..."}
 - Plain text, no emojis, no markdown.`
@@ -153,12 +160,13 @@ RULES:
   }
 
   // Thread the follow-up: Re: original subject, In-Reply-To original message_id
-  const followupSubject = `Re: ${originalEmail.subject}`
+  const followupSubject = `Re: ${subject}`
 
   // Schedule for next business day morning
   const scheduledAt = addBusinessDays(new Date(), 1)
   scheduledAt.setHours(9, 0, 0, 0) // 9 AM
 
+  // Encrypt before storing
   await sql`
     INSERT INTO email_sends (
       user_id, campaign_id, contact_id, subject, body,
@@ -167,8 +175,8 @@ RULES:
       ${originalEmail.user_id},
       ${originalEmail.campaign_id},
       ${originalEmail.contact_id},
-      ${followupSubject},
-      ${parsed.body},
+      ${encrypt(followupSubject)},
+      ${encrypt(parsed.body)},
       ${sendType},
       'approved',
       ${originalEmail.id},

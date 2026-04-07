@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
+import { decryptOptional } from '@/lib/encryption'
+
+function decryptEmail(row: any) {
+  return {
+    ...row,
+    subject: decryptOptional(row.subject),
+    body: decryptOptional(row.body),
+    contact_email: decryptOptional(row.contact_email),
+    contact_first_name: decryptOptional(row.contact_first_name),
+    contact_last_name: decryptOptional(row.contact_last_name),
+    // company_name and title are not encrypted
+  }
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await verifyAuthToken(request)
@@ -34,5 +47,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     `
   }
 
-  return NextResponse.json({ emails })
+  // Decrypt PII before sending to client
+  const decrypted = emails.map(decryptEmail)
+
+  return NextResponse.json({ emails: decrypted })
 }

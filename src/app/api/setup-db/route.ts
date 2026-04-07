@@ -145,6 +145,13 @@ export async function GET() {
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_host TEXT`
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS imap_port INTEGER`
 
+    // Email hash column for dedup without exposing plain email
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS email_hash TEXT`
+    await sql`CREATE INDEX IF NOT EXISTS idx_contacts_email_hash ON contacts(user_id, email_hash)`
+
+    // Excluded emails hash for matching
+    await sql`ALTER TABLE excluded_emails ADD COLUMN IF NOT EXISTS email_hash TEXT`
+
     // Indexes
     await sql`CREATE INDEX IF NOT EXISTS idx_click_tracking_send ON click_tracking(email_send_id)`
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id)`

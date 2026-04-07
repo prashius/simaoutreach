@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
@@ -56,4 +56,52 @@ export function decrypt(encryptedText: string): string {
 export function isEncrypted(text: string): boolean {
   const parts = text.split(':')
   return parts.length === 3 && parts[0].length === 32 && parts[1].length === 32
+}
+
+/**
+ * SHA-256 hash for deterministic lookups (dedup, matching).
+ * One-way — cannot be reversed. Used alongside encrypted storage.
+ */
+export function hash(text: string): string {
+  return createHash('sha256').update(text.toLowerCase().trim()).digest('hex')
+}
+
+/**
+ * Encrypt a value, returning null if input is null/undefined/empty.
+ * Convenience wrapper for optional fields.
+ */
+export function encryptOptional(text: string | null | undefined): string | null {
+  if (!text) return null
+  return encrypt(text)
+}
+
+/**
+ * Decrypt a value, returning null if input is null/undefined/empty.
+ */
+export function decryptOptional(text: string | null | undefined): string | null {
+  if (!text) return null
+  return decrypt(text)
+}
+
+/**
+ * Encrypt a JSON object. Serializes to JSON string, encrypts.
+ */
+export function encryptJson(obj: any): string | null {
+  if (!obj) return null
+  return encrypt(JSON.stringify(obj))
+}
+
+/**
+ * Decrypt a JSON object. Decrypts string, parses as JSON.
+ * Backwards compatible: if it's already a plain JSON string/object, returns as-is.
+ */
+export function decryptJson(text: string | null | undefined): any {
+  if (!text) return null
+  if (typeof text === 'object') return text // already parsed by DB driver
+  const decrypted = decrypt(text)
+  try {
+    return JSON.parse(decrypted)
+  } catch {
+    return text // wasn't JSON, return as-is
+  }
 }

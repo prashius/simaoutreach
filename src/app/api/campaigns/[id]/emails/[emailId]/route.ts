@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sql from '@/lib/db'
 import { verifyAuthToken } from '@/lib/jwt-auth'
+import { encrypt } from '@/lib/encryption'
 
 // PATCH - edit email subject/body
 export async function PATCH(
@@ -13,11 +14,15 @@ export async function PATCH(
   const { emailId } = await params
   const { subject, body } = await request.json()
 
+  // Encrypt before storing
+  const encSubject = subject ? encrypt(subject) : null
+  const encBody = body ? encrypt(body) : null
+
   const result = await sql`
     UPDATE email_sends
     SET
-      subject = COALESCE(${subject || null}, subject),
-      body = COALESCE(${body || null}, body),
+      subject = COALESCE(${encSubject}, subject),
+      body = COALESCE(${encBody}, body),
       edited_by_user = true
     WHERE id = ${Number(emailId)} AND user_id = ${auth.userId}
     RETURNING *
