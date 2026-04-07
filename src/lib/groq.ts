@@ -31,14 +31,14 @@ export async function generateColdEmail(opts: {
 
 RULES:
 - Start with "Hi ${opts.firstName},"
-- Para 1 (2-3 sentences): Reference a specific fact from the research. Connect to a real problem.
-- Para 2 (2-3 sentences): Pitch the product naturally using the product description provided.
+- Para 1 (2-3 sentences): Reference a SPECIFIC fact from the research — use actual numbers ($amounts, %growth, user counts, dates, product names). If the research mentions "$14M Series A" or "500+ customers" or "launched in 2024" — USE those exact figures. This is what makes the email feel researched, not templated.
+- Para 2 (2-3 sentences): Pitch the product naturally. Mention the product by name. Connect it to a specific problem the contact's company would face given what the research revealed.
 - Para 3 (1-2 sentences): Soft CTA using the call-to-action provided.
 - Sign off with sender name only.
 - HARD limit: 150 words. No buzzwords, no emojis, plain text only.
-- NEVER invent facts not in the research.
+- NEVER invent facts not in the research. But DO use every specific number/date/product name the research provides.
 - ANTI-CREEP RULE: Never reference personal life details. Only professional content.
-- Subject line: UNIQUE to this contact, reference a specific fact, under 10 words, lowercase feel.
+- Subject line: UNIQUE to this contact. Include a specific number or product name from the research. Under 10 words, lowercase feel.
 
 Return JSON: {"subject": "...", "body": "..."}`
 
