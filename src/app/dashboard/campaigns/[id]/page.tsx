@@ -34,6 +34,7 @@ export default function CampaignDetailPage() {
   // Generate state
   const [generating, setGenerating] = useState(false)
   const [generateResult, setGenerateResult] = useState<any>(null)
+  const [generateProgress, setGenerateProgress] = useState('')
 
   const headers = { Authorization: `Bearer ${token}` }
 
@@ -95,14 +96,41 @@ export default function CampaignDetailPage() {
   const generateEmails = async () => {
     setGenerating(true)
     setError('')
+    setGenerateProgress('')
+    let totalGenerated = 0
+    let totalFailed = 0
+
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/generate`, {
-        method: 'POST',
-        headers,
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setGenerateResult(data)
+      // Loop: generate one email per request until done
+      while (true) {
+        setGenerateProgress(`Generating email ${totalGenerated + 1}...`)
+        const res = await fetch(`/api/campaigns/${campaignId}/generate`, {
+          method: 'POST',
+          headers,
+        })
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.error)
+          break
+        }
+
+        if (data.done) {
+          if (data.generated === 0 && totalGenerated === 0) {
+            setGenerateProgress('All contacts already have emails.')
+          }
+          break
+        }
+
+        if (data.generated > 0) {
+          totalGenerated++
+          setGenerateProgress(`Generated ${totalGenerated} emails. ${data.remaining} remaining... (${data.contact})`)
+        } else {
+          totalFailed++
+        }
+      }
+
+      setGenerateResult({ generated: totalGenerated, failed: totalFailed })
       await fetchData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed')
@@ -242,9 +270,14 @@ export default function CampaignDetailPage() {
               Generated {generateResult.generated} emails. {generateResult.failed > 0 ? `${generateResult.failed} failed.` : ''}
             </div>
           )}
+          {generating && generateProgress && (
+            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm">
+              {generateProgress}
+            </div>
+          )}
           <button onClick={generateEmails} disabled={generating}
             className="flex items-center gap-2 bg-orange-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50">
-            {generating ? <><Zap className="w-4 h-4 animate-pulse" /> Generating... (this takes a few minutes)</> : <><Zap className="w-4 h-4" /> Generate {campaign.total_contacts} Emails</>}
+            {generating ? <><Zap className="w-4 h-4 animate-pulse" /> Generating...</> : <><Zap className="w-4 h-4" /> Generate {campaign.total_contacts} Emails</>}
           </button>
         </div>
       )}
